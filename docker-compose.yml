@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  broker:
+    image: eclipse-mosquitto
+    ports:
+      - "1883:1883"
+    networks:
+      - dognet
+
+  frame1:
+    build: ./display-app
+    environment:
+      - MQTT_DISCOVERY=1
+    networks:
+      - dognet
+
+  frame2:
+    build: ./display-app
+    environment:
+      - MQTT_DISCOVERY=1
+    networks:
+      - dognet
+
+networks:
+  dognet:
+    driver: bridge
