@@ -1,34 +1,34 @@
-import os
-import math
-from datetime import datetime
+
 from kivy.config import Config
 Config.set('graphics', 'fullscreen', '0')
 Config.set('graphics', 'show_cursor', '0')
 Config.set('kivy', 'keyboard_mode', 'dock')
 
-from kivy.base import EventLoop
-from kivy.core.window import Window
+import os
+import math
+from datetime import datetime
+
 from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
+from kivy.clock import Clock
+from kivy.core.window import Window
+from kivy.uix.widget import Widget
 from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.uix.widget import Widget
-from kivy.clock import Clock
-from kivy.uix.anchorlayout import AnchorLayout
-from kivy.graphics import Color, Ellipse, Rectangle
-from kivy.uix.behaviors import ButtonBehavior
-from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.screenmanager import ScreenManager, Screen
-import paho.mqtt.client as mqtt
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.relativelayout import RelativeLayout
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.graphics import Color, Ellipse, Rectangle
 
-# Device ID from environment
+from mqtt_client import MQTTClient
+
 DEVICE_ID = os.environ.get("DEVICE_ID", "frame1")
 BROKER_IP = os.environ.get("BROKER_IP", "localhost")
 
-EventLoop.ensure_window()
-Window.release_all_keyboards()
 Window.size = (800, 480)
 Window.clearcolor = (0, 0, 0, 1)
+
 
 class AnalogClock(Widget):
     def __init__(self, **kwargs):
@@ -59,6 +59,7 @@ class AnalogClock(Widget):
         from kivy.graphics import Line
         Line(points=[cx, cy, cx + length * math.sin(angle), cy + length * math.cos(angle)], width=width)
 
+
 class CircularButton(ButtonBehavior, Widget):
     def __init__(self, text='', background_color=(0.3, 0.6, 1, 1), on_press_callback=None, **kwargs):
         super().__init__(**kwargs)
@@ -81,25 +82,36 @@ class CircularButton(ButtonBehavior, Widget):
 
     def on_size(self, *args): self._init_draw()
     def on_pos(self, *args): self._init_draw()
-    def on_press(self):
-        if self.on_press_callback: self.on_press_callback()
+    def on_press(self): 
+        if self.on_press_callback:
+            self.on_press_callback()
+
 
 class MainScreen(Screen):
-    def __init__(self, on_request, on_release, **kwargs):
+    def __init__(self, mqtt_client, **kwargs):
         super().__init__(**kwargs)
+        self.mqtt_client = mqtt_client
         layout = BoxLayout(orientation='horizontal')
 
+        # Left 2/3: Analog clock
         clock_container = BoxLayout(size_hint=(0.66, 1))
         self.analog_clock = AnalogClock()
         clock_container.add_widget(self.analog_clock)
         layout.add_widget(clock_container)
 
+        # Right 1/3: Buttons stacked vertically
         button_area = BoxLayout(orientation='vertical', size_hint=(0.34, 1), spacing=40, padding=20)
         top_button = AnchorLayout()
         bottom_button = AnchorLayout()
 
-        self.request_button = CircularButton(text='Request', background_color=(0.2, 0.6, 1, 1), on_press_callback=on_request)
-        self.release_button = CircularButton(text='Release', background_color=(1, 0.3, 0.3, 1), on_press_callback=on_release)
+        self.request_button = CircularButton(
+            text='Request', background_color=(0.2, 0.6, 1, 1),
+            on_press_callback=lambda: self.mqtt_client.request_access()
+        )
+        self.release_button = CircularButton(
+            text='Release', background_color=(1, 0.3, 0.3, 1),
+            on_press_callback=lambda: self.mqtt_client.release_access()
+        )
 
         top_button.add_widget(self.request_button)
         bottom_button.add_widget(self.release_button)
@@ -109,11 +121,12 @@ class MainScreen(Screen):
         layout.add_widget(button_area)
         self.add_widget(layout)
 
+
 class ReservedScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self.canvas.before:
-            Color(1, 0, 0, 1)  # red
+            Color(1, 0, 0, 1)
             self.rect = Rectangle(size=self.size, pos=self.pos)
         self.bind(size=self._update_rect, pos=self._update_rect)
         self.add_widget(Label(text="BUSY", font_size='64sp', color=(1, 1, 1, 1)))
@@ -122,69 +135,45 @@ class ReservedScreen(Screen):
         self.rect.size = self.size
         self.rect.pos = self.pos
 
+
 class InUseScreen(Screen):
-    def __init__(self, on_done, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         layout = BoxLayout(orientation='vertical')
         with self.canvas.before:
-            Color(0, 0.6, 0, 1)  # green
+            Color(0, 0.6, 0, 1)
             self.rect = Rectangle(size=self.size, pos=self.pos)
         self.bind(size=self._update_rect, pos=self._update_rect)
-        label = Label(text="IN USE", font_size='64sp', color=(1, 1, 1, 1))
+        layout.add_widget(Label(text="IN USE", font_size='64sp', color=(1, 1, 1, 1)))
         done_button = Button(text="Done", size_hint=(None, None), size=(200, 100),
-                             pos_hint={'center_x': 0.5}, on_press=on_done)
-        layout.add_widget(label)
+                             pos_hint={'center_x': 0.5}, on_press=self.return_to_main)
         layout.add_widget(done_button)
         self.add_widget(layout)
 
-    def _update_rect(self, *args):
-        self.rect.size = self.size
-        self.rect.pos = self.pos
+    def _update_rect(self, *args): self.rect.size = self.size; self.rect.pos = self.pos
+    def return_to_main(self, instance): self.manager.current = 'main'
+
 
 class ClockButtonApp(App):
     def build(self):
-        self.sm = ScreenManager()
+        def handle_state_change(state):
+            print(f"📥 State received: {state}")
+            if state == f"inuse:{DEVICE_ID}":
+                sm.current = 'inuse'
+            elif state == "inuse":
+                sm.current = 'reserved'
+            elif state == "free":
+                sm.current = 'main'
 
-        self.main_screen = MainScreen(self.send_request, self.send_release, name='main')
-        self.reserved_screen = ReservedScreen(name='busy')
-        self.in_use_screen = InUseScreen(self.send_release, name='inuse')
+        mqtt_client = MQTTClient(on_state_change=handle_state_change)
+        mqtt_client.connect()
 
-        self.sm.add_widget(self.main_screen)
-        self.sm.add_widget(self.reserved_screen)
-        self.sm.add_widget(self.in_use_screen)
+        sm = ScreenManager()
+        sm.add_widget(MainScreen(name='main', mqtt_client=mqtt_client))
+        sm.add_widget(ReservedScreen(name='reserved'))
+        sm.add_widget(InUseScreen(name='inuse'))
+        return sm
 
-        self.client = mqtt.Client()
-        self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
-
-        print(f"📡 Connecting to MQTT broker at {BROKER_IP}...")
-        self.client.connect(BROKER_IP, 1883, 60)
-        self.client.loop_start()
-
-        self.sm.current = "main"
-        return self.sm
-
-    def on_connect(self, client, userdata, flags, rc):
-        print("🔗 Connected to MQTT broker")
-        client.subscribe("site/status")
-
-    def on_message(self, client, userdata, msg):
-        state = msg.payload.decode()
-        print(f"📨 Received state: {state}")
-        if state == DEVICE_ID:
-            Clock.schedule_once(lambda dt: setattr(self.sm, "current", "inuse"))
-        elif state == "none":
-            Clock.schedule_once(lambda dt: setattr(self.sm, "current", "main"))
-        else:
-            Clock.schedule_once(lambda dt: setattr(self.sm, "current", "busy"))
-
-    def send_request(self):
-        print(f"🟢 UI ({DEVICE_ID}) requesting access...")
-        self.client.publish("site/request", DEVICE_ID)
-
-    def send_release(self, *args):
-        print(f"🔴 UI ({DEVICE_ID}) releasing access...")
-        self.client.publish("site/release", DEVICE_ID)
 
 if __name__ == '__main__':
     ClockButtonApp().run()

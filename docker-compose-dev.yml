@@ -9,14 +9,14 @@ services:
       - dognet
 
   frame1:
-    build: ./frame-app
+    build: ./display-app
     environment:
       - MQTT_DISCOVERY=1
     networks:
       - dognet
 
   frame2:
-    build: ./frame-app
+    build: ./display-app
     environment:
       - MQTT_DISCOVERY=1
     networks:

@@ -2,23 +2,40 @@ version: '3.8'
 
 services:
   broker:
-    image: eclipse-mosquitto
+    image: eclipse-mosquitto:2
     ports:
       - "1883:1883"
+    environment:
+      - BROKER_HOST=broker
+    networks:
+      - dognet
+
+  broker_state:
+    build: ./broker_state
+    environment:
+      - BROKER_HOST=broker
+    depends_on:
+      - broker
     networks:
       - dognet
 
   frame1:
     build: ./display-app
     environment:
-      - MQTT_DISCOVERY=1
+      - DEVICE_ID=frame1
+    depends_on:
+      - broker
+      - broker_state
     networks:
       - dognet
 
   frame2:
     build: ./display-app
     environment:
-      - MQTT_DISCOVERY=1
+      - DEVICE_ID=frame2
+    depends_on:
+      - broker
+      - broker_state
     networks:
       - dognet
 
