@@ -16,14 +16,16 @@ if __name__ == "__main__":
 
     ui1 = launch_ui("frame1")
     ui2 = launch_ui("frame2")
+    ui3 = launch_ui("frame3")
 
     try:
         ui1.wait()
         ui2.wait()
+        ui3.wait()
     except KeyboardInterrupt:
         print("🛑 Shutting down...")
     finally:
-        for p in [ui1, ui2]:
+        for p in [ui1, ui2, ui3]:
             p.send_signal(signal.SIGINT)
             p.wait()
 

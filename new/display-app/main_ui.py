@@ -23,7 +23,7 @@ from kivy.uix.widget import Widget
 Window.size = (800, 480)
 Window.clearcolor = (0, 0, 0, 1)
 
-DEVICE_ID = os.getenv("DEVICE_ID", "frame1")
+DEVICE_ID = os.getenv("DEVICE_ID", "frame2")
 SERVER_IP = os.getenv("SERVER_IP", "localhost")
 SERVER_URL = f"http://{SERVER_IP}:8000"
 
