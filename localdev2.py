@@ -8,7 +8,7 @@ import signal
 
 def launch_ui(device_id):
     env = {**os.environ, "DEVICE_ID": device_id, "BROKER_IP": "localhost"}
-    return subprocess.Popen(["python3", "display-app/main_ui.py"], env=env)
+    return subprocess.Popen(["python3", "new/display-app/main_ui.py"], env=env)
 
 if __name__ == "__main__":
     print("🚀 Starting full local dev environment...")
@@ -16,14 +16,16 @@ if __name__ == "__main__":
 
     ui1 = launch_ui("frame1")
     ui2 = launch_ui("frame2")
+    ui3 = launch_ui("frame3")
 
     try:
         ui1.wait()
         ui2.wait()
+        ui3.wait()
     except KeyboardInterrupt:
         print("🛑 Shutting down...")
     finally:
-        for p in [ui1, ui2]:
+        for p in [ui1, ui2, ui3]:
             p.send_signal(signal.SIGINT)
             p.wait()
 

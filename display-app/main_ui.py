@@ -2,6 +2,7 @@ from kivy.config import Config
 Config.set('graphics', 'fullscreen', '0')
 Config.set('graphics', 'show_cursor', '0')
 Config.set('kivy', 'keyboard_mode', 'dock')
+Config.set('kivy', 'keyboard_mode', 'system')
 
 import os
 import math
@@ -11,14 +12,15 @@ import paho.mqtt.client as mqtt
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
-from kivy.uix.label import Label
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.anchorlayout import AnchorLayout
-from kivy.uix.widget import Widget
-from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics import Color, Ellipse, Rectangle, Line
-from kivy.clock import Clock
 from kivy.core.window import Window
+from kivy.uix.widget import Widget
+from kivy.uix.label import Label
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.floatlayout import FloatLayout
+from kivy.clock import Clock
 
 # UI config
 Window.size = (800, 480)
@@ -56,32 +58,59 @@ class AnalogClock(Widget):
     def draw_hand(self, cx, cy, length, angle, width):
         Line(points=[cx, cy, cx + length * math.sin(angle), cy + length * math.cos(angle)], width=width)
 
-class CircularButton(ButtonBehavior, Widget):
-    def __init__(self, text='', background_color=(0.3, 0.6, 1, 1), on_press_callback=None, **kwargs):
+
+class StyledSquareButton(Button):
+    def __init__(self, text='', background_color=(0.2, 0.6, 1, 1), on_press_callback=None, **kwargs):
         super().__init__(**kwargs)
+
         self.text = text
-        self.background_color = background_color
-        self.on_press_callback = on_press_callback
+        self.font_size = '20sp'
         self.size_hint = (None, None)
         self.size = (140, 140)
-        Clock.schedule_once(self._init_draw, 0)
+        self.background_color = background_color
+        self.background_normal = ''  # Allow background_color to take effect
 
-    def _init_draw(self, *args):
-        self.canvas.clear()
-        with self.canvas:
-            Color(*self.background_color)
-            Ellipse(pos=self.pos, size=self.size)
-        if not hasattr(self, 'label'):
-            self.label = Label(text=self.text, color=(1, 1, 1, 1), font_size=20)
-            self.add_widget(self.label)
-        self.label.center = self.center
+        if on_press_callback:
+            self.bind(on_press=lambda instance: on_press_callback())
 
-    def on_size(self, *args): self._init_draw()
-    def on_pos(self, *args): self._init_draw()
 
-    def on_press(self):
-        if self.on_press_callback:
-            self.on_press_callback()
+#
+# class CircularButton(ButtonBehavior, FloatLayout):
+#     def __init__(self, text='', background_color=(0.3, 0.6, 1, 1), on_press_callback=None, **kwargs):
+#         super().__init__(**kwargs)
+#
+#         self.background_color = background_color
+#         self.on_press_callback = on_press_callback
+#         self.size_hint = (None, None)
+#         self.size = (140, 140)
+#
+#         # Add label (child of FloatLayout — now layout handles sizing)
+#         self.label = Label(
+#             text=text,
+#             color=(1, 1, 1, 1),
+#             font_size=20,
+#             halign='center',
+#             valign='middle',
+#             size_hint=(1, 1),
+#             text_size=(140, 140),  # Matches button size
+#             pos_hint={'center_x': 0.5, 'center_y': 0.5}
+#         )
+#         self.add_widget(self.label)
+#
+#         # Redraw when layout changes
+#         self.bind(pos=self._update_canvas, size=self._update_canvas)
+#         Clock.schedule_once(self._update_canvas, 0)
+#
+#     def _update_canvas(self, *args):
+#         self.canvas.before.clear()
+#         with self.canvas.before:
+#             Color(*self.background_color)
+#             Ellipse(pos=self.pos, size=self.size)
+#
+#     def on_press(self):
+#         if self.on_press_callback:
+#             self.on_press_callback()
+
 
 class MainScreen(Screen):
     def __init__(self, switch_callback, **kwargs):
@@ -95,13 +124,20 @@ class MainScreen(Screen):
 
         button_box = BoxLayout(orientation='vertical', size_hint=(0.34, 1), spacing=40, padding=20)
 
-        self.request_btn = CircularButton("Request", background_color=(0.2, 0.6, 1, 1), on_press_callback=self.switch_callback['request'])
-        self.release_btn = CircularButton("Release", background_color=(1, 0.3, 0.3, 1), on_press_callback=self.switch_callback['release'])
+        # self.request_btn = CircularButton("Request", background_color=(0.2, 0.6, 1, 1), on_press_callback=self.switch_callback['request'])
+        # self.release_btn = CircularButton("Release", background_color=(1, 0.3, 0.3, 1), on_press_callback=self.switch_callback['release'])
+
+        self.going_out_button = StyledSquareButton(
+            text="Going Outside",
+            background_color=(0.2, 0.6, 1, 1),
+            on_press_callback=self.switch_callback['request']
+        )
+        self.main_layout.add_widget(self.going_out_button)
 
         top = AnchorLayout()
         bottom = AnchorLayout()
-        top.add_widget(self.request_btn)
-        bottom.add_widget(self.release_btn)
+        # top.add_widget(self.request_btn)
+        # bottom.add_widget(self.release_btn)
 
         button_box.add_widget(top)
         button_box.add_widget(bottom)
