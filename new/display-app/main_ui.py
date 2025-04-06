@@ -18,6 +18,8 @@ from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.uix.widget import Widget
+from kivy.uix.image import Image
+from kivy.graphics import Color, RoundedRectangle
 
 # Config
 Window.size = (800, 480)
@@ -56,58 +58,124 @@ class AnalogClock(Widget):
     def draw_hand(self, cx, cy, length, angle, width):
         Line(points=[cx, cy, cx + length * math.sin(angle), cy + length * math.cos(angle)], width=width)
 
-class CircularButton(ButtonBehavior, Widget):
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.label import Label
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.graphics import Color, Ellipse
+from kivy.clock import Clock
+
+
+class CircularButton(ButtonBehavior, FloatLayout):
     def __init__(self, text='', background_color=(0.3, 0.6, 1, 1), on_press_callback=None, **kwargs):
         super().__init__(**kwargs)
-        self.text = text
+
         self.background_color = background_color
         self.on_press_callback = on_press_callback
         self.size_hint = (None, None)
         self.size = (140, 140)
-        Clock.schedule_once(self._init_draw, 0)
 
-    def _init_draw(self, *args):
-        self.canvas.clear()
-        with self.canvas:
+        # Add label (child of FloatLayout — now layout handles sizing)
+        self.label = Label(
+            text=text,
+            color=(1, 1, 1, 1),
+            font_size=20,
+            halign='center',
+            valign='middle',
+            size_hint=(1, 1),
+            text_size=(140, 140),  # Matches button size
+            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+        )
+        self.add_widget(self.label)
+
+        # Redraw when layout changes
+        self.bind(pos=self._update_canvas, size=self._update_canvas)
+        Clock.schedule_once(self._update_canvas, 0)
+
+    def _update_canvas(self, *args):
+        self.canvas.before.clear()
+        with self.canvas.before:
             Color(*self.background_color)
             Ellipse(pos=self.pos, size=self.size)
-        if not hasattr(self, 'label'):
-            self.label = Label(text=self.text, color=(1, 1, 1, 1), font_size=20)
-            self.add_widget(self.label)
-        self.label.center = self.center
 
-    def on_size(self, *args): self._init_draw()
-    def on_pos(self, *args): self._init_draw()
     def on_press(self):
         if self.on_press_callback:
             self.on_press_callback()
+
 
 class MainScreen(Screen):
     def __init__(self, switch_callback, **kwargs):
         super().__init__(**kwargs)
         self.switch_callback = switch_callback
+
+        # Root layout: horizontal split (clock + buttons)
         layout = BoxLayout(orientation='horizontal')
 
-        clock_box = BoxLayout(size_hint=(0.66, 1))
+        # Clock + weather stack
+        left_column = BoxLayout(orientation='vertical', size_hint=(0.66, 1))
+
+        # Clock (reduced size)
         self.clock = AnalogClock()
-        clock_box.add_widget(self.clock)
+        clock_anchor = AnchorLayout(size_hint=(1, 0.7))
+        self.clock.size_hint = (None, None)
+        self.clock.size = (250, 250)  # Adjust size directly
+        clock_anchor.add_widget(self.clock)
 
+        # Weather bar container
+        weather_bar = BoxLayout(
+            orientation='horizontal',
+            size_hint=(1, 0.3),
+            padding=10,
+            spacing=15
+        )
+
+        # Add background with rounded corners
+        with weather_bar.canvas.before:
+            Color(0.15, 0.15, 0.15, 0.8)  # Dark translucent gray
+            self.weather_bg = RoundedRectangle(radius=[10], pos=weather_bar.pos, size=weather_bar.size)
+
+        # Bind background to layout size/pos
+        weather_bar.bind(pos=lambda *a: setattr(self.weather_bg, 'pos', weather_bar.pos))
+        weather_bar.bind(size=lambda *a: setattr(self.weather_bg, 'size', weather_bar.size))
+
+        # Weather icon (replace with your actual icon)
+        weather_icon = Image(
+            source='assets/weather/sun.png',
+            size_hint=(None, None),
+            size=(48, 48),
+            allow_stretch=True
+        )
+        weather_icon.pos_hint = {'center_y': 0.5}
+
+        # Styled weather text
+        temp_label = Label(text='15°C', font_size='22sp', color=(1, 1, 1, 1))
+        condition_label = Label(text='Sunny', font_size='22sp', color=(1, 1, 1, 1))
+        location_label = Label(text='Glenview', font_size='16sp', color=(0.8, 0.8, 0.8, 1))
+
+        weather_bar.add_widget(weather_icon)
+        weather_bar.add_widget(temp_label)
+        weather_bar.add_widget(condition_label)
+        weather_bar.add_widget(location_label)
+
+        # Buttons column (same as before)
         button_box = BoxLayout(orientation='vertical', size_hint=(0.34, 1), spacing=40, padding=20)
-
-        self.request_btn = CircularButton("Request", background_color=(0.2, 0.6, 1, 1), on_press_callback=self.switch_callback['request'])
-        self.release_btn = CircularButton("Release", background_color=(1, 0.3, 0.3, 1), on_press_callback=self.switch_callback['release'])
-
-        top = AnchorLayout()
         bottom = AnchorLayout()
-        top.add_widget(self.request_btn)
-        bottom.add_widget(self.release_btn)
-
-        button_box.add_widget(top)
+        self.going_out_button = CircularButton(
+            "Going Outside",
+            background_color=(0.2, 0.6, 1, 1),
+            on_press_callback=self.switch_callback['request']
+        )
+        bottom.add_widget(self.going_out_button)
+        button_box.add_widget(Widget())  # Empty top space
         button_box.add_widget(bottom)
 
-        layout.add_widget(clock_box)
+        layout.add_widget(left_column)
         layout.add_widget(button_box)
+
+        left_column.add_widget(clock_anchor)  # ✅ this adds the clock
+        left_column.add_widget(weather_bar)  # ✅ this adds the weather bar
+
         self.add_widget(layout)
+
 
 class ReservedScreen(Screen):
     def __init__(self, **kwargs):
