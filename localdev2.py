@@ -8,15 +8,15 @@ import signal
 
 def launch_ui(device_id):
     env = {**os.environ, "DEVICE_ID": device_id, "BROKER_IP": "localhost"}
-    return subprocess.Popen(["python3", "new/display-app/main_ui.py"], env=env)
+    return subprocess.Popen(["python3", "display-app/main.py"], env=env)
 
 if __name__ == "__main__":
     print("🚀 Starting full local dev environment...")
     time.sleep(1)
 
-    ui1 = launch_ui("frame1")
-    ui2 = launch_ui("frame2")
-    ui3 = launch_ui("frame3")
+    ui1 = launch_ui("mac_test_frame1")
+    ui2 = launch_ui("mac_test_frame2")
+    ui3 = launch_ui("mac_test_frame3")
 
     try:
         ui1.wait()
