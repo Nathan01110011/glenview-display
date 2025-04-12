@@ -1,31 +1,52 @@
 import os
-
 import httpx
+import toml
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.uix.screenmanager import ScreenManager
 
-from config import DEVICE_ID, SERVER_URL
 from screens.busy_screen import ReservedScreen
 from screens.inuse_screen import InUseScreen
 from screens.main_screen import MainScreen
 
-
 Window.size = (800, 480)
 Window.clearcolor = (0, 0, 0, 1)
+
+# Load device-specific config
+DEVICE_ID = os.getenv("DEVICE_ID", "default")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "dog_config", f"{DEVICE_ID}.toml")
+DOG_CONFIG = toml.load(CONFIG_PATH)
+
+DOG_NAME = DOG_CONFIG["dog_name"]
+DOG_IMAGES = DOG_CONFIG["images"]
+THEME_COLOR = DOG_CONFIG.get("theme_color", [0, 0.6, 0, 1])
+
+OTHER_DOG_NAME = DOG_CONFIG["other_dog"]["name"]
+OTHER_DOG_IMAGES = DOG_CONFIG["other_dog"]["images"]
+
+SERVER_IP = os.getenv("SERVER_IP", "localhost")
+SERVER_URL = f"http://{SERVER_IP}:8000"
+
 
 class ClockButtonApp(App):
     def build(self):
         print(f"📡 Using server at {SERVER_URL}")
         self.sm = ScreenManager()
-        self.sm.add_widget(MainScreen(name="main", switch_callback={
+
+        self.main_screen = MainScreen(name="main", switch_callback={
             "request": self.request_access,
             "release": self.release_access
-        }))
-        self.sm.add_widget(ReservedScreen(name="busy"))
-        self.sm.add_widget(InUseScreen(name="inuse", done_callback=self.release_access))
+        })
+        self.reserved_screen = ReservedScreen(name="busy")
+        self.inuse_screen = InUseScreen(name="inuse", done_callback=self.release_access)
+
+        self.sm.add_widget(self.main_screen)
+        self.sm.add_widget(self.reserved_screen)
+        self.sm.add_widget(self.inuse_screen)
         self.sm.current = "main"
+
         Clock.schedule_interval(self.check_state, 2)
         return self.sm
 
@@ -34,14 +55,12 @@ class ClockButtonApp(App):
 
     def request_access(self, *args):
         print(f"🟢 UI ({DEVICE_ID}) requesting access...")
-        # Trigger button feedback
-        screen = self.sm.get_screen("main")
-        screen.show_requesting_state()
+        self.main_screen.show_requesting_state()
         try:
             httpx.post(f"{SERVER_URL}/request", json={"device_id": DEVICE_ID}, timeout=2)
         except Exception as e:
             print("⚠️ Request failed:", e)
-            screen.reset_request_button()
+            self.main_screen.reset_request_button()
 
     def release_access(self, *args):
         print(f"🔴 UI ({DEVICE_ID}) releasing access...")
@@ -58,19 +77,20 @@ class ClockButtonApp(App):
                 occupied_by = state.get("occupied_by")
                 print(f"📥 Server state: occupied_by = {occupied_by}")
 
+                start_time = state.get("start_time")
+                print(f"[DEBUG] Start time from server: {start_time}")
+
                 if occupied_by is None:
                     self.switch_to("main")
-                    screen = self.sm.get_screen("main")
-                    screen.reset_request_button()
-
+                    self.main_screen.reset_request_button()
                 elif occupied_by == DEVICE_ID:
+                    self.inuse_screen.set_content(DOG_NAME, DOG_IMAGES, THEME_COLOR, start_time=start_time)
                     self.switch_to("inuse")
-
                 else:
+                    self.reserved_screen.set_content(OTHER_DOG_NAME, OTHER_DOG_IMAGES, start_time=start_time)
                     self.switch_to("busy")
         except Exception as e:
             print("⚠️ Failed to get state:", e)
-
 
 if __name__ == "__main__":
     ClockButtonApp().run()

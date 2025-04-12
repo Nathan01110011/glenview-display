@@ -1,10 +1,16 @@
+from datetime import datetime, timezone
+from typing import Optional
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 router = APIRouter()
 
 # In-memory state
-state = {"occupied_by": None}
+state: dict[str, Optional[str]] = {
+    "occupied_by": None,
+    "start_time": None
+}
 
 class DeviceAction(BaseModel):
     device_id: str
@@ -17,6 +23,7 @@ def get_state():
 def reserve(action: DeviceAction):
     if state["occupied_by"] is None:
         state["occupied_by"] = action.device_id
+        state["start_time"] = datetime.now(timezone.utc).isoformat()
     return state
 
 @router.post("/release")

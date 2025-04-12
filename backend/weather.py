@@ -5,7 +5,7 @@ import os
 
 router = APIRouter()
 
-API_KEY = os.getenv("WEATHER_API_KEY", "680f30fdbb69454ba2f121148251204")
+API_KEY = os.getenv("WEATHER_API_KEY")
 LOCATION = "Ballynahinch"
 _last_result = None
 _last_updated = None

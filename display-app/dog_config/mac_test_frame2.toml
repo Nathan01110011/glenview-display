@@ -1,0 +1,11 @@
+device_id = "mac_test_frame2"
+dog_name = "Jax"
+theme_color = [0.8, 0.3, 0.3, 1.0]
+images = ["assets/dogs/Jax1.jpeg"]
+
+[other_dog]
+name = "Corrin"
+images = [
+    "assets/dogs/Corrin1.jpeg",
+    "assets/dogs/Corrin2.jpeg"
+]

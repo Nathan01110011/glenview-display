@@ -16,16 +16,14 @@ if __name__ == "__main__":
 
     ui1 = launch_ui("mac_test_frame1")
     ui2 = launch_ui("mac_test_frame2")
-    ui3 = launch_ui("mac_test_frame3")
 
     try:
         ui1.wait()
         ui2.wait()
-        ui3.wait()
     except KeyboardInterrupt:
         print("🛑 Shutting down...")
     finally:
-        for p in [ui1, ui2, ui3]:
+        for p in [ui1, ui2]:
             p.send_signal(signal.SIGINT)
             p.wait()
 

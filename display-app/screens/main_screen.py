@@ -12,11 +12,30 @@ import httpx
 SERVER_URL = "http://localhost:8000"
 
 class MainScreen(Screen):
+    last_icon_url = None
     def __init__(self, switch_callback, **kwargs):
         super().__init__(**kwargs)
         self.switch_callback = switch_callback
 
-        layout = BoxLayout(orientation='horizontal')
+        layout = BoxLayout(orientation='vertical')
+
+        # Top server status bar
+        self.status_bar = Label(
+            text="Server Offline",
+            font_size='16sp',
+            size_hint=(1, None),
+            height=30,
+            color=(1, 1, 1, 1)
+        )
+        self.status_bar.canvas.before.clear()
+        with self.status_bar.canvas.before:
+            Color(1, 0.2, 0.2, 1)
+            self.status_bg = RoundedRectangle(radius=[0], pos=self.status_bar.pos, size=self.status_bar.size)
+        self.status_bar.bind(pos=lambda *a: setattr(self.status_bg, 'pos', self.status_bar.pos))
+        self.status_bar.bind(size=lambda *a: setattr(self.status_bg, 'size', self.status_bar.size))
+
+        content_layout = BoxLayout(orientation='horizontal')
+
         left_column = BoxLayout(orientation='vertical', size_hint=(0.66, 1))
 
         self.clock = AnalogClock()
@@ -57,12 +76,16 @@ class MainScreen(Screen):
         button_box.add_widget(Label())  # Spacer
         button_box.add_widget(bottom)
 
-        layout.add_widget(left_column)
-        layout.add_widget(button_box)
+        content_layout.add_widget(left_column)
+        content_layout.add_widget(button_box)
+
+        layout.add_widget(self.status_bar)
+        layout.add_widget(content_layout)
         self.add_widget(layout)
 
         Clock.schedule_once(self.update_weather, 0)
         Clock.schedule_interval(self.update_weather, 600)
+        Clock.schedule_interval(self.check_server_status, 5)
 
     def show_requesting_state(self):
         self.going_out_button.label.text = "Requesting..."
@@ -80,7 +103,20 @@ class MainScreen(Screen):
                 self.temp_label.text = f"{data['temp_c']}°C"
                 self.condition_label.text = data['condition']
                 self.location_label.text = data['location']
-                self.weather_icon.source = data['icon_url']
-                self.weather_icon.reload()
+                if data['icon_url'] != self.last_icon_url:
+                    self.weather_icon.source = data['icon_url']
+                    self.weather_icon.reload()
+                    self.last_icon_url = data['icon_url']
         except Exception as e:
             print("⚠️ Failed to update weather widget:", e)
+
+    def check_server_status(self, dt):
+        try:
+            r = httpx.get(f"{SERVER_URL}/state", timeout=3)
+            if r.status_code == 200:
+                self.status_bar.opacity = 0
+                self.going_out_button.disabled = False
+                self.update_weather(0)  # Immediately refresh weather now that server is back
+        except Exception:
+            self.status_bar.opacity = 1
+            self.going_out_button.disabled = True
