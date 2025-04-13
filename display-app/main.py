@@ -15,7 +15,7 @@ Window.size = (800, 480)
 Window.clearcolor = (0, 0, 0, 1)
 
 # Load device-specific config
-DEVICE_ID = os.getenv("DEVICE_ID", "default")
+DEVICE_ID = os.getenv("DEVICE_ID", "default2")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "dog_config", f"{DEVICE_ID}.toml")
 DOG_CONFIG = toml.load(CONFIG_PATH)
@@ -48,6 +48,9 @@ class ClockButtonApp(App):
         env_override = os.getenv("SERVER_IP")
         self.server_ip = env_override or find_server_on_lan() or "localhost"
         print(f"📡 Using server at http://{self.server_ip}:8000")
+
+        # Tell the weather bar what server to use
+        self.main_screen.weather_bar.set_server_url(f"http://{self.server_ip}:8000")
 
         Clock.schedule_interval(self.check_state, 2)
         return self.sm
@@ -96,6 +99,11 @@ class ClockButtonApp(App):
                 else:
                     self.reserved_screen.set_content(OTHER_DOG_NAME, OTHER_DOG_IMAGES, start_time=start_time)
                     self.switch_to("busy")
+
+                # Trigger weather retry if needed
+                if hasattr(self.main_screen, "weather_bar"):
+                    self.main_screen.weather_bar.retry_weather_if_needed(self.get_server_url("/weather"))
+
         except Exception as e:
             print("⚠️ Failed to get state:", e)
             self.try_rescan_server()
@@ -105,6 +113,7 @@ class ClockButtonApp(App):
         if new_ip and new_ip != self.server_ip:
             print(f"🔁 Server rediscovered at new IP: {new_ip}")
             self.server_ip = new_ip
+            self.main_screen.weather_bar.set_server_url(f"http://{self.server_ip}:8000")
 
 
 if __name__ == "__main__":
