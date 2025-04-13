@@ -1,15 +1,19 @@
+"""Logic for generating the clock on the home screen"""
+
+import math
+from datetime import datetime
+
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Ellipse, Line
 from kivy.clock import Clock
-import math
-from datetime import datetime
+
 
 class AnalogClock(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         Clock.schedule_interval(self.update_clock, 1)
 
-    def update_clock(self, *args):
+    def update_clock(self, *_):
         self.canvas.clear()
         with self.canvas:
             Color(1, 1, 1)
@@ -30,7 +34,15 @@ class AnalogClock(Widget):
             self.draw_hand(cx, cy, r * 0.9, sec_angle, 2)
 
     def draw_hand(self, cx, cy, length, angle, width):
-        Line(points=[cx, cy, cx + length * math.sin(angle), cy + length * math.cos(angle)], width=width)
+        Line(
+            points=[
+                cx,
+                cy,
+                cx + length * math.sin(angle),
+                cy + length * math.cos(angle),
+            ],
+            width=width,
+        )
 
     def angle(self, value, max_value):
         return math.radians((value / max_value) * 360)

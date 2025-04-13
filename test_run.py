@@ -5,10 +5,10 @@ import time
 import signal
 
 
-
 def launch_ui(device_id):
     env = {**os.environ, "DEVICE_ID": device_id, "BROKER_IP": "localhost"}
     return subprocess.Popen(["python3", "display-app/main.py"], env=env)
+
 
 if __name__ == "__main__":
     print("🚀 Starting full local dev environment...")
