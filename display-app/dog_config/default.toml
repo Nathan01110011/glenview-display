@@ -1,0 +1,11 @@
+device_id = "annex"
+dog_name = "Corrin"
+theme_color = [0.2, 0.6, 1.0, 1.0]
+images = [
+    "assets/dogs/Corrin1.jpeg",
+    "assets/dogs/Corrin2.jpeg"
+]
+
+[other_dog]
+name = "Jax"
+images = ["assets/dogs/Jax1.jpeg"]

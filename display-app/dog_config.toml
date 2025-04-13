@@ -1,8 +1,0 @@
-device_id = "frame1"
-dog_name = "Luna"
-theme_color = [0.2, 0.6, 1, 1]
-
-images = [
-  "assets/dogs/luna1.jpg",
-  "assets/dogs/luna2.jpg"
-]
