@@ -15,6 +15,7 @@ Window.clearcolor = (0, 0, 0, 1)
 
 Config.load_dog_config()
 
+
 class ClockButtonApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
