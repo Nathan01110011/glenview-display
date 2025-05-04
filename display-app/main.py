@@ -110,9 +110,7 @@ class ClockButtonApp(App):
                     self.switch_to("busy")
 
                 if hasattr(self.main_screen, "weather_bar"):
-                    self.main_screen.weather_bar.retry_weather_if_needed(
-                        self.get_server_url("/weather")
-                    )
+                    self.main_screen.weather_bar.retry_weather_if_needed(Config.SERVER_URL)
         except httpx.RequestError as e:
             print("⚠️ Failed to get state:", e)
             self.try_rescan_server()
