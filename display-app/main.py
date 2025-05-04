@@ -12,6 +12,8 @@ from config import Config
 
 Window.size = (800, 480)
 Window.clearcolor = (0, 0, 0, 1)
+Window.fullscreen = True
+Window.show_cursor = False
 
 Config.load_dog_config()
 

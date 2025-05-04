@@ -14,6 +14,7 @@ class Config:
     THEME_COLOR = [0, 0.6, 0, 1]
     OTHER_DOG_NAME = None
     OTHER_DOG_IMAGES = []
+    IS_SERVER = False
 
     @classmethod
     def set_server_ip(cls, ip: str):
@@ -31,3 +32,4 @@ class Config:
         cls.THEME_COLOR = data.get("theme_color", [0, 0.6, 0, 1])
         cls.OTHER_DOG_NAME = data.get("other_dog", {}).get("name")
         cls.OTHER_DOG_IMAGES = data.get("other_dog", {}).get("images", [])
+        cls.IS_SERVER = data.get("is_server", False)

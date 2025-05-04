@@ -1,4 +1,5 @@
 device_id = "annex"
+is_server = true
 dog_name = "Corrin"
 theme_color = [0.2, 0.6, 1.0, 1.0]
 images = [
